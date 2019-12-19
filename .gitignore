@@ -1,0 +1,6 @@
+# Default ignored files
+/.idea
+
+# passwords and secrets no supposed to end up in the repo
+/bin/secrets.sh
+
