@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-# script for setting up a k8s cluster in azure
+# script for setting up a k8s cluster in azure, minikube, ...
 #  you need python-azure-cli on archlinux for the az commands
 #
 #
-#  !!! this script contains usernames and passwords !!!
+# syntax:
+#  kubernetes.sk [setup|dispose] [azure|minikube]
 #
 # references:
 #    https://docs.bitnami.com/kubernetes/how-to/secure-kubernetes-services-with-ingress-tls-letsencrypt/
@@ -15,216 +16,162 @@
 #
 #
 
-# cloud properties
+# terminate as soon as any command fails
+set -o errexit
+# don't allow uninitialized variables
+set -o nounset
+
+# azure cloud properties
 RESOURCE_GROUP_NAME="apolloResourceGroup"
-CLUSTER_NAME="apolloAKSCluster"
+AZURE_CLUSTER_NAME="apolloAKSCluster"
 NODE_COUNT="2"
 LOCATION="westeurope"
 
 # script specific parameter
-DATA_DIR="/tmp/azure_data"
+SCRIPT_DIR="$(dirname "${0}")"
+# use the full canonical path
+SCRIPT_DIR="$(readlink -f "${SCRIPT_DIR}")"
+INCLUDE_DIR="${SCRIPT_DIR}/includes"
+SCRIPT_NAME="$(basename "${0}")"
+DATA_DIR="/tmp/${SCRIPT_NAME}_data"
 LOCK_DIR="${DATA_DIR}/.lock.d"
 PID_FILE="${LOCK_DIR}/pid"
-SCRIPT_DIR="$(dirname "$0")"
 CONFIG_DIR="${SCRIPT_DIR}/config"
 
-# reading the logins and passwords
-# shellcheck source=./secrets.sh
-source "${SCRIPT_DIR}/secrets.sh"
+# includes for passwords
+source "${INCLUDE_DIR}/secrets.sh"
+# includes for different platforms
+source "${INCLUDE_DIR}/azure.sh"
+source "${INCLUDE_DIR}/minikube.sh"
 
+# will be set up later
+KUBECTL_CONTEXT=""  # only two possible names: minikube | azure
 
-# kubectl_create environment
-mkdir -p ${DATA_DIR}
+# create storage for temp and debug data
+mkdir -p "${DATA_DIR}"
 
-
+################################ some helper functions to make things easier ######################
 
 # for showing colored messages
 function msg() {
-  # terminal colors
-  # red=$(tput setaf 1)
-  green=$(tput setaf 2)
-  reset=$(tput sgr0)
-  echo "${green}${1}${reset}"
+    green=$(tput setaf 2)
+    reset=$(tput sgr0)
+    echo "${green}${1}${reset}"
+}
+
+# print error and exit
+function fail() {
+    red=$(tput setaf 1)
+    reset=$(tput sgr0)
+    echo "${red}${1}${reset}"
+    exit "${2:-1}" # default to 'exit 1'
 }
 
 # to avoid concurrent runs of this script messing things up
-function create_lock () {
-  if ( mkdir ${LOCK_DIR} ) 2> /dev/null; then
-    echo $$ > ${PID_FILE}
-    # remove everything on normal exit
-    trap 'rm -rf "${LOCK_DIR}"; exit $?' INT TERM EXIT
-    msg "storing data in ${DATA_DIR}, added hook for removal on normal exit."
-  else
-    msg "lock exists: ${LOCK_DIR} owned by pid $(cat ${PID_FILE}), remove the lock if you want to run this script."
-    exit 1
-  fi
+function create_lock() {
+    if (mkdir "${LOCK_DIR}") 2>/dev/null; then
+        echo $$ >"${PID_FILE}"
+        # remove everything on normal exit
+        trap 'rm -rf "${LOCK_DIR}"; exit $?' INT TERM EXIT
+        # msg "storing data in ${DATA_DIR}, added hook for directory removal on normal exit."
+    else
+        fail "lock exists: ${LOCK_DIR} owned by pid $(cat "${PID_FILE}"), remove the lock if you want to run this script."
+    fi
 }
 
-# login to azure and the docker registry
-function login_azure {
-  msg "performing azure login"
-  az login \
-     -u "${AZURE_USER}" \
-     -p "${AZURE_PASS}" \
-  1> "${DATA_DIR}/login.json"
+# print usage and exit
+function print_usage() {
+    fail "usage: ${SCRIPT_NAME} [dispose | setup [minikube|azure|dashboard]]}"
 }
 
-function login_docker {
-  msg "performing docker registry login at ${DOCKER_REGISTRY}"
-  echo "${DOCKER_REGISTRY_PASS}" |
-  docker login \
-    -u "${DOCKER_REGISTRY_USER}" \
-    --password-stdin \
-    "${DOCKER_REGISTRY}"
+# set KUBECTL_CONTEXT variable
+function find_kubectl_context() {
+    KUBECTL_CONTEXT="$({ kubectl config current-context || true; } 2>&1)"
+    case ${KUBECTL_CONTEXT} in
+    minikube)
+        KUBECTL_CONTEXT="minikube"
+        ;;
+    "${AZURE_CLUSTER_NAME}")
+        KUBECTL_CONTEXT="azure"
+        ;;
+    *)
+        fail "unknown kubectl context found: \"${KUBECTL_CONTEXT}\" "
+        ;;
+    esac
 }
 
-# creates cluster and resource group
-function setup_resource_group_and_cluster {
-  msg "running setup_resource_group (this may take a while) ..."
-  # az aks show --name apolloAKSCluster --resource-group apolloResourceGroup
+################################ logins to services and repos ######################
 
-  msg "  trying to find clientId in resourse group ${RESOURCE_GROUP_NAME} and cluster ${CLUSTER_NAME}"
-  CLIENT_ID=$(az aks show --name ${CLUSTER_NAME} --resource-group ${RESOURCE_GROUP_NAME} 2> /dev/null |
-      grep 'clientId' |
-      sed '/.*\"\(.*\)\".*/s//\1/g')
 
-  if [[ ${#CLIENT_ID} -gt 0 ]]; then
-      msg "  cluster ${CLUSTER_NAME} in resource group ${RESOURCE_GROUP_NAME} already exists, skipping creation, clientId is '${CLIENT_ID}'"
-      return
-  fi
-
-  msg "  creating resource group ${RESOURCE_GROUP_NAME}, location: ${LOCATION}"
-  az group create \
-     --name ${RESOURCE_GROUP_NAME} \
-     --location ${LOCATION} \
-  1> "${DATA_DIR}/resource_group.json"
-
-  msg "  creating cluster ${CLUSTER_NAME}, node count: ${NODE_COUNT}"
-  az aks create \
-     --resource-group ${RESOURCE_GROUP_NAME} \
-     --name ${CLUSTER_NAME} \
-     --node-count ${NODE_COUNT} \
-     --generate-ssh-keys \
-  1> "${DATA_DIR}/cluster.json"
-
-  #   --enable-addons http_application_routing \
-  #   --enable-addons monitoring \
-
-  # connect kubectl to the cluster
-  msg "  fetching credentials for ${RESOURCE_GROUP_NAME}, cluster: ${CLUSTER_NAME}"
-  az aks get-credentials \
-     --resource-group ${RESOURCE_GROUP_NAME} \
-     --name ${CLUSTER_NAME} \
-     --overwrite-existing \
-  1> "${DATA_DIR}/credentials.json"
-
-  # create a public ip prefix
-  #az network public-ip create \
-  #   --name apolloPublicIp \
-  #   --resource-group ${RESOURCE_GROUP_NAME} \
-  #   --location ${LOCATION} \
-  #   --allocation-method dynamic
-
-  msg "...done setup_resource_group"
-}
-
-function setup_tiller_and_helm {
-  msg "  checking for tiller serviceaccounts"
-  TILLER_ACCOUNT=$(kubectl -n kube-system get serviceaccounts | grep '^tiller ')
-  if [[ ${#TILLER_ACCOUNT} -gt 0 ]]; then
-      msg "  tiller account found, helm should be initialized already"
-      return
-  fi
-  msg "  no tiller account found, setup tiller and helm"
-
-  kubectl -n kube-system create serviceaccount tiller
-
-  kubectl create clusterrolebinding tiller \
-     --clusterrole=cluster-admin \
-     --serviceaccount=kube-system:tiller
-
-  # this also deploys a tiller image to the cluster
-  helm init --service-account tiller
-
-  # Add the Jetstack Helm repository for cert manager
-  helm repo add jetstack https://charts.jetstack.io
-
-  # Update your local Helm chart repository cache
-  helm repo update
-
-  # Wait for tiller pod to get ready
-  kubectl -n kube-system wait --for=condition=Ready pod -l name=tiller --timeout=300s
-  msg "  finished tiller and helm setup"
+function login_docker() {
+    msg "performing docker registry login at \"${DOCKER_REGISTRY}\""
+    echo "${DOCKER_REGISTRY_PASS}" |
+        docker login \
+            -u "${DOCKER_REGISTRY_USER}" \
+            --password-stdin \
+            "${DOCKER_REGISTRY}"
 }
 
 
-function setup_ingress {
-  msg "  setup ingress with helm..."
-  helm install --name ingress stable/nginx-ingress
-  msg "  ...setup ingress done."
-}
 
-function setup_certmanager {
-  msg "  setup cert manager with helm..."
-  # see: https://docs.cert-manager.io/en/latest/getting-started/install/kubernetes.html
-  #      https://docs.cert-manager.io/en/latest/
-  #      https://cert-manager.readthedocs.io/en/latest/reference/issuers.html
-  #      https://cert-manager.readthedocs.io/en/latest/reference/ingress-shim.html
-  # - the namespace cert-manager should already be created
-  # - the helm chart repo https://charts.jetstack.io shuld be added to helm
-  #   like this: kubectl create namespace cert-manager
+################################ k8s, helm stuff ######################
 
-  # Install the cert-manager Helm chart
-  helm install \
-    --name cert-manager \
-    --namespace cert-manager \
-    --set webhook.enabled=false \
-    stable/cert-manager
-
-  msg "  ...setup cert manager done."
-
+#
+#  setup helm
+#
+function setup_helm() {
+    msg "running ${FUNCNAME[0]}"
+    # not sure this is needed
+    rm -rf ~/.helm
+    helm init
+    # Add the Jetstack Helm repository for cert manager
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+    # helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com/
+    # Update local Helm chart repository cache
+    helm repo update
 }
 
 
-function access_dashboard {
-  msg "...accessing dashboard"
-  # add clusterrolebinding for viewing dashboard
-
-  CLUSTERROLEBINDING_DASHBOARD=$(kubectl -n kube-system get clusterrolebinding | grep '^kubernetes-dashboard ')
-  if [[ ${#CLUSTERROLEBINDING_DASHBOARD} -eq 0 ]]; then
-    kubectl create clusterrolebinding kubernetes-dashboard \
-        --clusterrole=cluster-admin \
-        --serviceaccount=kube-system:kubernetes-dashboard
-  fi
-
-  # show the dashboard in browser
-  az aks browse \
-     --resource-group ${RESOURCE_GROUP_NAME} \
-     --name ${CLUSTER_NAME} &
+function setup_ingress() {
+    msg "  setup ingress with helm..."
+    helm install ingress stable/nginx-ingress
+    msg "  ...setup ingress done."
 }
 
-function teardown_resource_group {
-  msg "running teardown_resource_group..."
+function setup_certmanager() {
+    msg "  setup cert manager with helm..."
+    # see: https://docs.cert-manager.io/en/latest/getting-started/install/kubernetes.html
+    #      https://docs.cert-manager.io/en/latest/
+    #      https://cert-manager.readthedocs.io/en/latest/reference/issuers.html
+    #      https://cert-manager.readthedocs.io/en/latest/reference/ingress-shim.html
+    # - the namespace cert-manager should already be created
+    # - the helm chart repo https://charts.jetstack.io shuld be added to helm
+    #   like this: kubectl create namespace cert-manager
 
-  msg "  deleting resource group ${RESOURCE_GROUP_NAME}"
-  az group delete \
-     --name ${RESOURCE_GROUP_NAME} \
-     --yes
-  msg "...done teardown_resource_group"
+    # Install the cert-manager Helm chart
+    helm install \
+        --name cert-manager \
+        --namespace cert-manager \
+        --set webhook.enabled=false \
+        stable/cert-manager
+
+    msg "  ...setup cert manager done."
+
 }
 
 #
 # building a docker image
 #
-function build {
-  msg "...running build for ${1}"
-  pushd "${CONFIG_DIR}/${1}" || return
-  npm i
-  # in gitlab see: Packages > Container Registry
-  IMAGE_PATH="${DOCKER_REGISTRY}/${DOCKER_REGISTRY_USER}/apollo/${1}"
-  docker build -t "${IMAGE_PATH}:latest" .
-  docker push "${IMAGE_PATH}"
-  popd || exit 1
+function build() {
+    msg "...running build for ${1}"
+    pushd "${CONFIG_DIR}/${1}" || return
+    npm i
+    # in gitlab see: Packages > Container Registry
+    IMAGE_PATH="${DOCKER_REGISTRY}/${DOCKER_REGISTRY_USER}/apollo/${1}"
+    docker build -t "${IMAGE_PATH}:latest" .
+    docker push "${IMAGE_PATH}"
+    popd || exit 1
 }
 
 #
@@ -233,39 +180,83 @@ function build {
 #       about how to access
 #  e.g. kubectl port-forward deployment/hello-world 7000:8080
 #
-function kubectl_create {
-  SETUP_FILE="${DATA_DIR}/${1}.kubectl_create"
-  if [[ -f "${SETUP_FILE}" ]]; then
-    msg "  ${SETUP_FILE} exist, skipping kubectl_create of ${1}, kubectl_create file exists at ${SETUP_FILE}"
-    return
-  fi
-  kubectl create -f "${CONFIG_DIR}/${1}.yml"
-  touch "${SETUP_FILE}"
+function kubectl_create() {
+    SETUP_FILE="${DATA_DIR}/${1}.kubectl_create"
+    if [[ -f "${SETUP_FILE}" ]]; then
+        msg "  ${SETUP_FILE} exist, skipping kubectl_create of ${1}, kubectl_create file exists at ${SETUP_FILE}"
+        return
+    fi
+    kubectl create -f "${CONFIG_DIR}/${1}.yml"
+    touch "${SETUP_FILE}"
 }
 
-function usage {
-  msg "usage: $0 [setup [env]|teardown]"
-  exit 1
-}
+################################ main ############################
 
-if [[ $# -eq 0 ]];
-    then usage
-fi
-
-
-
-function setup {
-  case ${1} in
-    env)
-      setup_resource_group_and_cluster
-      ;;
+#########
+#
+# setup resources, and configure kubectl to use them
+#
+function setup() {
+    if [ ${#} -ne 1 ]; then
+        fail "empty setup argument ${1}"
+    fi
+    case ${1} in
+    azure)
+        login_azure
+        setup_azure
+        ;;
+    minikube)
+        setup_minikube
+        ;;
+    helm | ingress)
+        setup_"${1}"
+        ;;
+    dashboard)
+        # dashboard is set up differently depending on the context
+        find_kubectl_context
+        "setup_${KUBECTL_CONTEXT}_${1}"
+        ;;
     *)
-      echo "unknown setup parameter ${1}"
-      usage
-      ;;
-  esac
+        fail "unknown setup argument ${1}"
+        ;;
+    esac
 }
 
+#########
+#
+# dispose resources, defaults to the current kubectl context plus the datadir
+#
+function dispose() {
+    local ARGS
+    if [ ${#} -eq 0 ] || [ ${#} -eq 1 ] && [ -z "${1}" ]; then
+        # assuming we want to dispose everything if we get no or a single empty parameter
+        ARGS="$({ kubectl config current-context || true; } 2>&1)" # might return "error: current-context is not set"
+        ARGS+=("datadir")
+    else
+        ARGS=("${@}")
+    fi
+    for ARG in "${ARGS[@]}"; do
+        case ${ARG} in
+        error:\ *)
+            fail "no current context in kubectl found, please specify what you want to dispose {\"azure\",\"minikube\",\"datadir\"}"
+            ;;
+        azure | "${AZURE_CLUSTER_NAME}")
+            login_azure
+            dispose_azure
+            ;;
+        minikube)
+            dispose_minikube
+            ;;
+        datadir)
+            msg "removing ${DATA_DIR}"
+            rm -rf "${DATA_DIR}"
+            ;;
+        *)
+            fail "unknown dispose argument \"${ARG}\", use one of {\"azure\",\"minikube\",\"datadir\"}"
+            ;;
+        esac
+    done
+}
 
 #### main ####
 #
@@ -279,26 +270,28 @@ function setup {
 
 create_lock
 
-
-while true; do
-case ${1} in
-  setup)
-    login_azure
-    setup "${2}"
-    exit 0
-    ;;
-  teardown)
-    login_azure
-    teardown_resource_group
-    rm -rf "${DATA_DIR}"
-    exit 0
-    ;;
-  *)
-    # unknown option
-    echo "unknown option ${1}"
+# we need at least one argument
+if [[ $# -eq 0 ]]; then
     usage
-    exit 0
-    ;;
-esac
-done
+fi
 
+while [ ${#} -ge 1 ]; do
+    case ${1} in
+    setup)
+        shift
+        setup "${1}"
+        shift
+        ;;
+    dispose)
+        shift
+        dispose "${1:-}"
+        shift
+        ;;
+    *)
+        # unknown option
+        echo "unknown option ${1}"
+        usage
+        exit 0
+        ;;
+    esac
+done

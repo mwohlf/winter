@@ -5,12 +5,14 @@
 replicaCount: 1
 
 image:
-  repository: nginx
+  # repository is the image name
+  repository: hub.docker.com
+  container: postgres
+  tag: 12.1-alpine
+  # pullPolicy is the Docker image pull policy
+  # It's recommended to change this to 'Always' if the image tag is 'latest'
+  # ref: http://kubernetes.io/docs/user-guide/images/#updating-image
   pullPolicy: IfNotPresent
-
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -19,18 +21,8 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
-podSecurityContext: {}
-  # fsGroup: 2000
-
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
-
 service:
+  # type defines the Kubernetes service type ('ClusterIP', 'LoadBalancer', or 'NodePort')
   type: ClusterIP
   port: 80
 
@@ -47,23 +39,14 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-#resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube.
 resources:
-  cpu: 200m
-  memory: 512Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
 
+# nodeSelector is an array of Node labels for POD assignments
+# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
