@@ -4,6 +4,7 @@
 function setup_minikube() {
     msg "running ${FUNCNAME[0]} (this may take a while) ..."
     minikube start --vm-driver kvm2
+    minikube addons enable ingress
     msg "...done running ${FUNCNAME[0]}"
 }
 
