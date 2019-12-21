@@ -28,8 +28,13 @@ helm create postgresql
 ```
 
 to test a chart
-```$xslt
+```
 helm lint ./postgresql
+```
+
+to upgrade a chart
+```
+helm upgrade postgres ./postgresql
 ```
 
 ### files and directories

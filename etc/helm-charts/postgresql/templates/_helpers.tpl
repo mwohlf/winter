@@ -52,3 +52,10 @@ this is included by "{{- include "postgresql.selectorLabels" . | nindent 6 }}"
 app.kubernetes.io/name: {{ include "postgresql.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
+
+{{/*
+Return PostgreSQL port
+*/}}
+{{- define "postgresql.port" -}}
+    {{- .Values.service.port -}}
+{{- end -}}

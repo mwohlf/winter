@@ -19,9 +19,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: postgres
-              containerPort: 5432
-              protocol: TCP
+            - name: tcp-postgresql
+              containerPort: {{ template "postgresql.port" . }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 

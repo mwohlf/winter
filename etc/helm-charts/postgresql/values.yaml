@@ -10,8 +10,11 @@ image:
   pullPolicy: IfNotPresent
 
 service:
+  ## PosgresSQL service type
+  # type: ClusterIP
   type: NodePort
   port: 5432
+  # clusterIP: None
 
 ingress:
   enabled: false
