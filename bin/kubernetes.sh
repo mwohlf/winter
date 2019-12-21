@@ -48,6 +48,7 @@ CONFIG_DIR="${SCRIPT_DIR}/config"
 # will be set up in one of the includes
 declare KUBECTL_CONTEXT="" # only two possible names: minikube | azure
 declare -A HELM_SETUPS
+declare -A HELM_REFRESH
 
 # includes for passwords
 source "${INCLUDE_DIR}/secrets.sh"
@@ -80,7 +81,6 @@ function setup() {
     else
         ARGS=("${@}")
     fi
-    msg "running setup for ${ARGS[*]}"
     for ARG in "${ARGS[@]}"; do
         case ${ARG} in
         azure)
@@ -146,6 +146,20 @@ function dispose() {
     done
 }
 
+function refresh() {
+    ARGS=("${@}")
+    for ARG in "${ARGS[@]}"; do
+        case ${ARG} in
+        ingress | postgres)
+            ${HELM_REFRESH["${ARG}"]}
+            ;;
+        *)
+            fail "unknown refresh argument \"${ARG}\""
+            ;;
+        esac
+    done
+}
+
 #### main ####
 #
 #  to get the whole config:
@@ -170,7 +184,11 @@ setup)
     ;;
 dispose)
     shift
-    dispose "${1:-}"
+    dispose "${@}"
+    ;;
+refresh)
+    shift
+    refresh "${@}"
     ;;
 *)
     # unknown option

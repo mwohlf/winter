@@ -29,7 +29,7 @@ function create_lock() {
 
 # print usage and exit
 function print_usage() {
-    fail "usage: ${SCRIPT_NAME} [dispose | setup [minikube|azure|dashboard]]}"
+    fail "usage: ${SCRIPT_NAME} [dispose|setup|refresh] [minikube|azure|dashboard|postgres]]}"
 }
 
 # set KUBECTL_CONTEXT variable initialized in the main script

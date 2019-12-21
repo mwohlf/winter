@@ -6,14 +6,20 @@ HELM_SETUPS=( \
   ["postgres"]="helm install postgres ${HELM_CHART_DIR}/postgresql"\
 )
 
+HELM_REFRESH=( \
+  ["ingress"]="helm upgrade ingress stable/nginx-ingress"\
+  ["postgres"]="helm upgrade postgres ${HELM_CHART_DIR}/postgresql"\
+)
+
+
 #  setup helm
 function setup_helm() {
     msg "running ${FUNCNAME[0]}"
     # not sure this is needed
     rm -rf ~/.helm
-    helm init
+    # helm init
     # Add the Jetstack Helm repository for cert manager
-    helm repo add jetstack https://charts.jetstack.io
+    # helm repo add jetstack https://charts.jetstack.io
     helm repo add stable https://kubernetes-charts.storage.googleapis.com/
     # helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com/
     # Update local Helm chart repository cache
