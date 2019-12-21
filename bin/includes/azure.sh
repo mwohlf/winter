@@ -60,7 +60,7 @@ function setup_azure() {
     #   --location ${LOCATION} \
     #   --allocation-method dynamic
 
-    CLIENT_ID=$(az aks show --name ${AZURE_CLUSTER_NAME} --resource-group ${RESOURCE_GROUP_NAME} 2>/dev/null |
+    CLIENT_ID=$(az aks show --name "${AZURE_CLUSTER_NAME}" --resource-group "${RESOURCE_GROUP_NAME}" 2>/dev/null |
         grep 'clientId' |
         sed '/.*\"\(.*\)\".*/s//\1/g')
 
