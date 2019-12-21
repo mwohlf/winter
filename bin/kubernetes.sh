@@ -19,12 +19,11 @@
 # disable checks for unresolvable includes
 #   shellcheck disable=SC1090
 
-shellcheck -P includes
-
 # terminate as soon as any command fails
 set -o errexit
 # don't allow uninitialized variables
 set -o nounset
+
 # azure cloud properties
 RESOURCE_GROUP_NAME="apolloResourceGroup"
 AZURE_CLUSTER_NAME="apolloAKSCluster"
@@ -34,6 +33,7 @@ LOCATION="westeurope"
 # use the full canonical path for the home dir of the script
 SCRIPT_DIR="$(dirname "${0}")"
 SCRIPT_DIR="$(readlink -f "${SCRIPT_DIR}")"
+
 # chart dir must be relative to the script
 HELM_CHART_DIR="$(readlink -f "${SCRIPT_DIR}/../etc/helm-charts")"
 INCLUDE_DIR="${SCRIPT_DIR}/includes"
@@ -42,6 +42,11 @@ DATA_DIR="/tmp/${SCRIPT_NAME}_data"
 LOCK_DIR="${DATA_DIR}/.lock.d"
 PID_FILE="${LOCK_DIR}/pid"
 CONFIG_DIR="${SCRIPT_DIR}/config"
+
+# will be set up in one of the includes
+declare KUBECTL_CONTEXT=""  # only two possible names: minikube | azure
+declare -A HELM_SETUPS
+
 
 # includes for passwords
 source "${INCLUDE_DIR}/secrets.sh"
@@ -54,10 +59,6 @@ source "${INCLUDE_DIR}/misc.sh"
 # includes for different platforms
 source "${INCLUDE_DIR}/azure.sh"
 source "${INCLUDE_DIR}/minikube.sh"
-
-# will be set up in one of the includes
-declare KUBECTL_CONTEXT=""  # only two possible names: minikube | azure
-declare -A HELM_SETUPS
 
 
 # create storage for temp and debug data

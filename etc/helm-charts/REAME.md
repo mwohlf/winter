@@ -1,3 +1,4 @@
+## readme
 
 to install chart in a subdirector, use:
 ```
@@ -25,3 +26,16 @@ to initialize a simple helm chart:
 ```
 helm create postgresql
 ```
+
+to test a chart
+```$xslt
+helm lint ./postgresql
+```
+
+### files and directories
+
+* charts: This is an optional directory that may contain sub-charts
+* templates: This is the directory where Kubernetes resources are defined as templates
+* Chart.yaml: This is the main file that contains the description of our chart
+* values.yaml: this is the file that contains the default values for our chart
+* .helmignore: This is where we can define patterns to ignore when packaging (similar in concept to .gitignore)

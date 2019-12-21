@@ -3,7 +3,7 @@
 # shellcheck disable=SC2034
 HELM_SETUPS=( \
   ["ingress"]="helm install ingress stable/nginx-ingress"\
-  ["postgres"]="helm install postgres stable/postgresql"\
+  ["postgres"]="helm install postgres ${HELM_CHART_DIR}/postgresql"\
 )
 
 #  setup helm

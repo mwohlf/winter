@@ -33,6 +33,7 @@ Create chart name and version as used by the chart label.
 
 {{/*
 Common labels
+this is included by "{{- include "postgresql.labels" . | nindent 4 }}"
 */}}
 {{- define "postgresql.labels" -}}
 helm.sh/chart: {{ include "postgresql.chart" . }}
@@ -45,19 +46,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/*
 Selector labels
+this is included by "{{- include "postgresql.selectorLabels" . | nindent 6 }}"
 */}}
 {{- define "postgresql.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "postgresql.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "postgresql.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create -}}
-    {{ default (include "postgresql.fullname" .) .Values.serviceAccount.name }}
-{{- else -}}
-    {{ default "default" .Values.serviceAccount.name }}
-{{- end -}}
 {{- end -}}
