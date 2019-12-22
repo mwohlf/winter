@@ -174,7 +174,7 @@ create_lock
 
 # we need at least one argument [setup|dispose]
 if [[ $# -eq 0 ]]; then
-    usage
+    print_usage
 fi
 
 case ${1} in
@@ -193,7 +193,7 @@ refresh)
 *)
     # unknown option
     echo "unknown option ${1}"
-    usage
+    print_usage
     exit 0
     ;;
 esac

@@ -12,6 +12,7 @@ image:
 service:
   ## PosgresSQL service type
   # type: ClusterIP
+  # a node port exposes the service on a static port on the node IP address
   type: NodePort
   port: 5432
   # clusterIP: None

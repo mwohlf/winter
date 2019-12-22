@@ -37,6 +37,12 @@ to upgrade a chart
 helm upgrade postgres ./postgresql
 ```
 
+other commands
+```
+# get the pods IP addresses
+kubectl get pods -o yaml | grep podIP
+```
+
 ### files and directories
 
 * charts: This is an optional directory that may contain sub-charts
