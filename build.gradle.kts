@@ -7,29 +7,8 @@
  */
 
 // run 'gradle wrapper' to setup
-wrapper {
-    gradleVersion = '6.0.1'
+tasks.wrapper {
+    description = "Regenerates the Gradle Wrapper files"
+    gradleVersion = "6.0.1"
+    distributionType = Wrapper.DistributionType.ALL
 }
-
-plugins {
-    // Apply the java plugin to add support for Java
-    java
-
-    // Apply the application plugin to add support for building a CLI application.
-    application
-}
-
-repositories {
-    // Use jcenter for resolving dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    jcenter()
-}
-
-dependencies {
-    // This dependency is used by the application.
-    implementation("com.google.guava:guava:28.0-jre")
-
-    // Use JUnit test framework
-    testImplementation("junit:junit:4.12")
-}
-
