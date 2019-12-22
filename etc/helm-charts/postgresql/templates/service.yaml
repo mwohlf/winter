@@ -2,16 +2,18 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "postgresql.fullname" . }}
-  labels:
-    {{- include "postgresql.labels" . | nindent 4 }}
+  labels: {{ include "postgresql.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
     - name: tcp-postgresql
       port: {{ template "postgresql.port" . }}
-      targetPort: tcp-postgresql
+      targetPort: tcp-postgresql {{/*
+       workaround, see: https://github.com/kubernetes/kubectl/issues/221    */}}
       {{- if .Values.service.nodePort }}
       nodePort: {{ .Values.service.nodePort }}
+      {{- else}}
+      nodePort: null
       {{- end }}
   selector:
     {{- include "postgresql.selectorLabels" . | nindent 4 }}

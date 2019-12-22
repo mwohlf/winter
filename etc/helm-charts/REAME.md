@@ -15,6 +15,7 @@ helm repo update
 to install a chart from a  chart repository:
 ```
 helm install postgres stable/postgresql
+helm install test --debug --dry-run ./postgresql
 ```
 
 to fetch chart and store in local dir:

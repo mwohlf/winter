@@ -13,6 +13,8 @@
 #    https://akomljen.com/package-kubernetes-applications-with-helm/
 #    https://docs.cert-manager.io/en/latest/getting-started/install/kubernetes.html
 #
+# resources:
+#    https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
 #
 # disable check for unused variables, because they are used in includes
 #   shellcheck disable=SC2034

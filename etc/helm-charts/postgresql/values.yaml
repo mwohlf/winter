@@ -11,14 +11,15 @@ image:
 
 service:
   ## PosgresSQL service type
+  # a ClusterIP uses internal cluster IP for the service
   # type: ClusterIP
-  # a node port exposes the service on a static port on the node IP address
+  # a NodePort exposes the service on a static port on the node IP address
   type: NodePort
   port: 5432
   # clusterIP: None
 
 ingress:
-  enabled: false
+  enabled: true
 
 # no specific resources
 resources: {}
