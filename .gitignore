@@ -1,9 +1,17 @@
-# Ignore Gradle project-specific cache directory
-/.gradle
-# Default ignored files
-/.idea
+# tool dirs
+.gradle
+.idea
+.project
+.classpath
 
 # passwords and secrets no supposed to end up in the repo
 secrets.sh
-# Ignore Gradle build output directory
+# build and compile targets
 build
+tmp
+dist
+node_modules
+
+# System Files
+.DS_Store
+Thumbs.db
