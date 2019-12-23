@@ -10,5 +10,6 @@
 rootProject.name = "winter"
 
 include("frontend")
+include("backend")
 
 

@@ -4,11 +4,26 @@
  * This generated file contains a sample Java project to get you started.
  * For more details take a look at the Java Quickstart chapter in the Gradle
  * User Manual available at https://docs.gradle.org/6.0.1/userguide/tutorial_java_projects.html
+ *
+ *
+ * see: https://docs.gradle.org/6.0.1/dsl/
  */
+
+plugins {
+    base
+}
+
+subprojects {
+    version = "0.1.0"
+}
 
 // run 'gradle wrapper' to setup
 tasks.wrapper {
     description = "Regenerates the Gradle Wrapper files"
     gradleVersion = "6.0.1"
     distributionType = Wrapper.DistributionType.ALL
+}
+
+tasks.register("greeting") {
+    doLast { println("Hello, World!") }
 }

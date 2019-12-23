@@ -2,6 +2,16 @@
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 8.3.21.
 
+## Setup
+
+* yarn global add @angular/cli
+* ng gets installed into ~/.yarn/bin
+* ng g component home
+* ng g component about
+* ng add @angular/material
+* yarn add web-component-essentials
+
+
 ## Development server
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.

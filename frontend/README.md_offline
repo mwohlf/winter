@@ -1,8 +1,0 @@
-## Angular frontend
-
-
-
-### setup process
-
-* yarn global add @angular/cli
-* ng gets installed into ~/.yarn/bin
